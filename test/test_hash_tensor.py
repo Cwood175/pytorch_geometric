@@ -4,9 +4,8 @@ from typing import List
 import numpy as np
 import pytest
 import torch
-from torch import Tensor
-
 import torch_geometric.typing
+from torch import Tensor
 from torch_geometric import HashTensor
 from torch_geometric.io import fs
 from torch_geometric.testing import (
@@ -42,18 +41,20 @@ def test_basic(dtype, device):
 
     tensor = HashTensor(key)
     if tensor.is_cuda:
-        assert str(tensor) == (f"HashTensor({tensor.as_tensor().tolist()}, "
-                               f"device='{tensor.device}')")
+        assert str(tensor) == (
+            f'HashTensor({tensor.as_tensor().tolist()}, '
+            f"device='{tensor.device}')"
+        )
     else:
-        assert str(tensor) == f"HashTensor({tensor.as_tensor().tolist()})"
+        assert str(tensor) == f'HashTensor({tensor.as_tensor().tolist()})'
 
     assert tensor.dtype == torch.int64
     assert tensor.device == device
-    assert tensor.size() == (key.size(0), )
+    assert tensor.size() == (key.size(0),)
 
     value = torch.randn(key.size(0), 2, device=device)
     tensor = HashTensor(key, value)
-    assert str(tensor).startswith("HashTensor([")
+    assert str(tensor).startswith('HashTensor([')
     assert tensor.dtype == torch.float
     assert tensor.device == device
     assert tensor.size() == (key.size(0), 2)
@@ -67,31 +68,31 @@ def test_empty(dtype, device):
     tensor = HashTensor(key)
     assert tensor.dtype == torch.int64
     assert tensor.device == device
-    assert tensor.size() == (0, )
+    assert tensor.size() == (0,)
 
     out = tensor.index_select(0, torch.empty(0, dtype=dtype, device=device))
     assert not isinstance(out, HashTensor)
     assert out.dtype == torch.int64
     assert out.device == device
-    assert out.size() == (0, )
+    assert out.size() == (0,)
 
     value = torch.empty(0, device=device)
     tensor = HashTensor(key, value)
     assert tensor.dtype == value.dtype
     assert tensor.device == device
-    assert tensor.size() == (0, )
+    assert tensor.size() == (0,)
 
     out = tensor.index_select(0, torch.empty(0, dtype=dtype, device=device))
     assert not isinstance(out, HashTensor)
     assert out.dtype == value.dtype
     assert out.device == device
-    assert out.size() == (0, )
+    assert out.size() == (0,)
 
 
 @withCUDA
 @withHashTensor
 def test_string_key(device):
-    tensor = HashTensor(['1', '2', '3'], device=device)
+    tensor = HashTensor(['1', '2', '3'], device=device, key_dtype=torch.uint8)
     out = tensor[['3', '2', '4']]
     assert out.equal(torch.tensor([2, 1, -1], device=device))
 
@@ -229,16 +230,16 @@ def test_unsqueeze(device):
     key = torch.tensor([2, 1, 0], device=device)
     tensor = HashTensor(key)
 
-    with pytest.raises(IndexError, match="in the first dimension"):
+    with pytest.raises(IndexError, match='in the first dimension'):
         tensor.unsqueeze(0)
 
-    with pytest.raises(IndexError, match="in the first dimension"):
+    with pytest.raises(IndexError, match='in the first dimension'):
         tensor.unsqueeze(-2)
 
-    with pytest.raises(IndexError, match="out of range"):
+    with pytest.raises(IndexError, match='out of range'):
         tensor.unsqueeze(2)
 
-    with pytest.raises(IndexError, match="out of range"):
+    with pytest.raises(IndexError, match='out of range'):
         tensor.unsqueeze(-3)
 
     out = tensor.unsqueeze(-1)
@@ -282,25 +283,25 @@ def test_squeeze(num_keys, device):
 
     out = tensor.squeeze()
     assert isinstance(out, HashTensor)
-    assert out.size() == (num_keys, )
+    assert out.size() == (num_keys,)
 
     out = tensor.squeeze(0)
     assert isinstance(out, HashTensor)
-    assert out.size() == (num_keys, )
+    assert out.size() == (num_keys,)
 
     out = tensor.squeeze(-1)
     assert isinstance(out, HashTensor)
-    assert out.size() == (num_keys, )
+    assert out.size() == (num_keys,)
 
     if torch_geometric.typing.WITH_PT20:
         out = tensor.squeeze([0])
         assert isinstance(out, HashTensor)
-        assert out.size() == (num_keys, )
+        assert out.size() == (num_keys,)
 
-    with pytest.raises(IndexError, match="out of range"):
+    with pytest.raises(IndexError, match='out of range'):
         tensor.squeeze(1)
 
-    with pytest.raises(IndexError, match="out of range"):
+    with pytest.raises(IndexError, match='out of range'):
         tensor.squeeze(-2)
 
     value = torch.randn(key.size(0), 1, 1, device=device)
@@ -308,7 +309,7 @@ def test_squeeze(num_keys, device):
 
     out = tensor.squeeze()
     assert isinstance(out, HashTensor)
-    assert out.size() == (num_keys, )
+    assert out.size() == (num_keys,)
 
     out = tensor.squeeze(0)
     assert isinstance(out, HashTensor)
@@ -321,7 +322,7 @@ def test_squeeze(num_keys, device):
     if torch_geometric.typing.WITH_PT20:
         out = tensor.squeeze([0, 1, 2])
         assert isinstance(out, HashTensor)
-        assert out.size() == (num_keys, )
+        assert out.size() == (num_keys,)
 
 
 @withCUDA
@@ -330,7 +331,7 @@ def test_slice(device):
     key = torch.tensor([2, 1, 0], device=device)
     tensor = HashTensor(key)
 
-    with pytest.raises(IndexError, match="out of range"):
+    with pytest.raises(IndexError, match='out of range'):
         torch.narrow(tensor, dim=-2, start=0, length=2)
 
     out = tensor[:]
@@ -396,10 +397,10 @@ def test_index_select(dtype, device):
     else:
         assert out.equal(torch.tensor([1, 0], device=device))
 
-    with pytest.raises(IndexError, match="out of range"):
+    with pytest.raises(IndexError, match='out of range'):
         torch.index_select(tensor, 1, query)
 
-    with pytest.raises(IndexError, match="out of range"):
+    with pytest.raises(IndexError, match='out of range'):
         tensor.index_select(-2, query)
 
     value = torch.randn(key.size(0), 2, device=device)
@@ -438,10 +439,10 @@ def test_select(device):
     assert out.dim() == 0
     assert int(out) == -1
 
-    with pytest.raises(IndexError, match="out of range"):
+    with pytest.raises(IndexError, match='out of range'):
         torch.select(tensor, 1, 0)
 
-    with pytest.raises(IndexError, match="out of range"):
+    with pytest.raises(IndexError, match='out of range'):
         tensor.select(-2, 0)
 
     value = torch.randn(key.size(0), 2, device=device)
@@ -550,13 +551,13 @@ def test_getitem(dtype, device):
 
     out = tensor[:2]
     assert isinstance(out, HashTensor)
-    assert out.size() == (2, ) + value.size()[1:]
+    assert out.size() == (2,) + value.size()[1:]
 
 
 @onlyLinux
 @withHashTensor
 @withPackage('torch>=2.3')
-@pytest.mark.skip(reason="Does not work currently")
+@pytest.mark.skip(reason='Does not work currently')
 def test_compile_basic():
     import torch._dynamo as dynamo
 

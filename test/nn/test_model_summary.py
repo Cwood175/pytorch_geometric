@@ -2,9 +2,8 @@ from typing import Optional
 
 import pytest
 import torch
-from torch import Tensor, nn
-
 import torch_geometric.typing
+from torch import Tensor, nn
 from torch_geometric.nn import Linear, SAGEConv, summary, to_hetero
 from torch_geometric.nn.models import GCN
 from torch_geometric.testing import withPackage
@@ -28,10 +27,9 @@ class GraphSAGE(torch.nn.Module):
 class ModuleDictModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.acts = nn.ModuleDict({
-            "lrelu": nn.LeakyReLU(),
-            "prelu": nn.PReLU()
-        })
+        self.acts = nn.ModuleDict(
+            {'lrelu': nn.LeakyReLU(), 'prelu': nn.PReLU()}
+        )
 
     def forward(self, x: torch.Tensor, act_type: str) -> torch.Tensor:
         return self.acts[act_type](x)
@@ -129,12 +127,15 @@ def test_summary_with_max_depth(gcn):
 | ├─(norms)ModuleList | --                 | --             | --       |
 +---------------------+--------------------+----------------+----------+
 """
-    assert summary(
-        gcn['model'],
-        gcn['x'],
-        gcn['edge_index'],
-        max_depth=1,
-    ) == expected[1:-1]
+    assert (
+        summary(
+            gcn['model'],
+            gcn['x'],
+            gcn['edge_index'],
+            max_depth=1,
+        )
+        == expected[1:-1]
+    )
 
 
 @withPackage('tabulate')
@@ -158,12 +159,15 @@ def test_summary_with_leaf_module(gcn):
 | │    └─(1)Identity                      | --                 | --             | --       |
 +-----------------------------------------+--------------------+----------------+----------+
 """
-    assert summary(
-        gcn['model'],
-        gcn['x'],
-        gcn['edge_index'],
-        leaf_module=None,
-    ) == expected[13:-1]
+    assert (
+        summary(
+            gcn['model'],
+            gcn['x'],
+            gcn['edge_index'],
+            leaf_module=None,
+        )
+        == expected[13:-1]
+    )
 
 
 @withPackage('tabulate')
@@ -198,19 +202,19 @@ def test_summary_with_to_hetero_model():
 
     expected = """
 +---------------------------+---------------------+----------------+----------+
-| Layer                     | Input Shape         | Output Shape   | #Param   |
+| Layer                     | Input Shape         | Output Shape   |   #Param |
 |---------------------------+---------------------+----------------+----------|
-| GraphModule               |                     |                | 5,824    |
-| ├─(lin1)ModuleDict        | --                  | --             | 544      |
-| │    └─(p)Linear          | [100, 16]           | [100, 16]      | 272      |
-| │    └─(a)Linear          | [100, 16]           | [100, 16]      | 272      |
-| ├─(conv1)ModuleDict       | --                  | --             | 3,168    |
-| │    └─(p__to__p)SAGEConv | [100, 16], [2, 200] | [100, 32]      | 1,056    |
-| │    └─(p__to__a)SAGEConv | [2, 200]            | [100, 32]      | 1,056    |
-| │    └─(a__to__p)SAGEConv | [2, 200]            | [100, 32]      | 1,056    |
-| ├─(lin2)ModuleDict        | --                  | --             | 2,112    |
-| │    └─(p)Linear          | [100, 32]           | [100, 32]      | 1,056    |
-| │    └─(a)Linear          | [100, 32]           | [100, 32]      | 1,056    |
+| GraphModule               |                     |                |    5,824 |
+| ├─(lin1)ModuleDict        | --                  | --             |      544 |
+| │    └─(p)Linear          | [100, 16]           | [100, 16]      |      272 |
+| │    └─(a)Linear          | [100, 16]           | [100, 16]      |      272 |
+| ├─(conv1)ModuleDict       | --                  | --             |    3,168 |
+| │    └─(p__to__p)SAGEConv | [100, 16], [2, 200] | [100, 32]      |    1,056 |
+| │    └─(p__to__a)SAGEConv | [2, 200]            | [100, 32]      |    1,056 |
+| │    └─(a__to__p)SAGEConv | [2, 200]            | [100, 32]      |    1,056 |
+| ├─(lin2)ModuleDict        | --                  | --             |    2,112 |
+| │    └─(p)Linear          | [100, 32]           | [100, 32]      |    1,056 |
+| │    └─(a)Linear          | [100, 32]           | [100, 32]      |    1,056 |
 +---------------------------+---------------------+----------------+----------+
 """
     assert summary(model, x_dict, edge_index_dict) == expected[1:-1]

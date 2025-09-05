@@ -4,29 +4,42 @@ from collections import namedtuple
 
 import pytest
 import torch
-
 from torch_geometric import seed_everything
-from torch_geometric.graphgym import register
-from torch_geometric.graphgym.checkpoint import get_ckpt_dir
-from torch_geometric.graphgym.config import (
-    cfg,
-    dump_cfg,
-    load_cfg,
-    set_out_dir,
-    set_run_dir,
-)
-from torch_geometric.graphgym.loader import create_loader
-from torch_geometric.graphgym.logger import LoggerCallback, set_printing
-from torch_geometric.graphgym.model_builder import create_model
-from torch_geometric.graphgym.models.gnn import FeatureEncoder, GNNStackStage
-from torch_geometric.graphgym.models.head import GNNNodeHead
-from torch_geometric.graphgym.train import GraphGymDataModule, train
-from torch_geometric.graphgym.utils import (
-    agg_runs,
-    auto_select_device,
-    params_count,
-)
 from torch_geometric.testing import onlyLinux, onlyOnline, withPackage
+
+
+@pytest.fixture(autouse=True)
+def load_graphgym_dependencies():
+    global GraphGymDataModule, LoggerCallback
+    global FeatureEncoder, GNNNodeHead, GNNStackStage
+    global agg_runs, auto_select_device, cfg, create_loader, create_model
+    global dump_cfg, get_ckpt_dir, load_cfg, params_count, register
+    global set_out_dir, set_printing, set_run_dir, train
+
+    from torch_geometric.graphgym import register
+    from torch_geometric.graphgym.checkpoint import get_ckpt_dir
+    from torch_geometric.graphgym.config import (
+        cfg,
+        dump_cfg,
+        load_cfg,
+        set_out_dir,
+        set_run_dir,
+    )
+    from torch_geometric.graphgym.loader import create_loader
+    from torch_geometric.graphgym.logger import LoggerCallback, set_printing
+    from torch_geometric.graphgym.model_builder import create_model
+    from torch_geometric.graphgym.models.gnn import (
+        FeatureEncoder,
+        GNNStackStage,
+    )
+    from torch_geometric.graphgym.models.head import GNNNodeHead
+    from torch_geometric.graphgym.train import GraphGymDataModule, train
+    from torch_geometric.graphgym.utils import (
+        agg_runs,
+        auto_select_device,
+        params_count,
+    )
+
 
 num_trivial_metric_calls = 0
 
@@ -46,10 +59,11 @@ def trivial_metric(true, pred, task_type):
 @pytest.mark.parametrize('auto_resume', [True, False])
 @pytest.mark.parametrize('skip_train_eval', [True, False])
 @pytest.mark.parametrize('use_trivial_metric', [True, False])
-def test_run_single_graphgym(tmp_path, capfd, auto_resume, skip_train_eval,
-                             use_trivial_metric):
-    warnings.filterwarnings('ignore', ".*does not have many workers.*")
-    warnings.filterwarnings('ignore', ".*lower value for log_every_n_steps.*")
+def test_run_single_graphgym(
+    tmp_path, capfd, auto_resume, skip_train_eval, use_trivial_metric
+):
+    warnings.filterwarnings('ignore', '.*does not have many workers.*')
+    warnings.filterwarnings('ignore', '.*lower value for log_every_n_steps.*')
 
     load_cfg(cfg, args)
     cfg.out_dir = osp.join(tmp_path, 'out_dir')
@@ -95,8 +109,12 @@ def test_run_single_graphgym(tmp_path, capfd, auto_resume, skip_train_eval,
     cfg.params = params_count(model)
     assert cfg.params == 23883
 
-    train(model, datamodule, logger=True,
-          trainer_config={"enable_progress_bar": False})
+    train(
+        model,
+        datamodule,
+        logger=True,
+        trainer_config={'enable_progress_bar': False},
+    )
 
     assert osp.isdir(get_ckpt_dir()) is cfg.train.enable_ckpt
 
@@ -140,27 +158,27 @@ def test_graphgym_module(tmp_path):
     cfg.params = params_count(model)
     assert cfg.params == 23883
 
-    keys = {"loss", "true", "pred_score", "step_end_time"}
+    keys = {'loss', 'true', 'pred_score', 'step_end_time'}
     # test training step
     batch = next(iter(loaders[0]))
     batch.to(model.device)
     outputs = model.training_step(batch)
     assert keys == set(outputs.keys())
-    assert isinstance(outputs["loss"], torch.Tensor)
+    assert isinstance(outputs['loss'], torch.Tensor)
 
     # test validation step
     batch = next(iter(loaders[1]))
     batch.to(model.device)
     outputs = model.validation_step(batch)
     assert keys == set(outputs.keys())
-    assert isinstance(outputs["loss"], torch.Tensor)
+    assert isinstance(outputs['loss'], torch.Tensor)
 
     # test test step
     batch = next(iter(loaders[2]))
     batch.to(model.device)
     outputs = model.test_step(batch)
     assert keys == set(outputs.keys())
-    assert isinstance(outputs["loss"], torch.Tensor)
+    assert isinstance(outputs['loss'], torch.Tensor)
 
 
 @pytest.fixture
@@ -174,7 +192,7 @@ def destroy_process_group():
 @onlyLinux
 @withPackage('yacs', 'pytorch_lightning')
 def test_train(destroy_process_group, tmp_path, capfd):
-    warnings.filterwarnings('ignore', ".*does not have many workers.*")
+    warnings.filterwarnings('ignore', '.*does not have many workers.*')
 
     import pytorch_lightning as pl
 
@@ -195,8 +213,9 @@ def test_train(destroy_process_group, tmp_path, capfd):
     model = create_model()
     cfg.params = params_count(model)
     logger = LoggerCallback()
-    trainer = pl.Trainer(max_epochs=1, max_steps=4, callbacks=logger,
-                         log_every_n_steps=1)
+    trainer = pl.Trainer(
+        max_epochs=1, max_steps=4, callbacks=logger, log_every_n_steps=1
+    )
     train_loader, val_loader = loaders[0], loaders[1]
     trainer.fit(model, train_loader, val_loader)
 
