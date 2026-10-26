@@ -3,11 +3,13 @@ import warnings
 import torch
 
 try:
-    import pytorch_lightning as pl
+    import lightning.pytorch as pl
+
     _pl_is_available = True
 except ImportError:
     try:
-        import lightning.pytorch as pl
+        import pytorch_lightning as pl
+
         _pl_is_available = True
     except ImportError:
         _pl_is_available = False
@@ -23,4 +25,5 @@ else:
     warnings.warn(
         "To use GraphGym, install 'pytorch_lightning' or 'lightning' via "
         "'pip install pytorch_lightning' or 'pip install lightning'",
-        stacklevel=2)
+        stacklevel=2,
+    )

@@ -11,12 +11,15 @@ from torch_geometric.sampler import BaseSampler, NeighborSampler
 from torch_geometric.typing import InputEdges, InputNodes, OptTensor
 
 try:
-    from pytorch_lightning import LightningDataModule as _LightningDataModule
+    from lightning.pytorch import LightningDataModule as _LightningDataModule
+
     _pl_is_available = True
 except ImportError:
     try:
-        from lightning.pytorch import \
-            LightningDataModule as _LightningDataModule
+        from pytorch_lightning import (
+            LightningDataModule as _LightningDataModule,
+        )
+
         _pl_is_available = True
     except ImportError:
         _pl_is_available = False
@@ -31,7 +34,8 @@ class LightningDataModule(_LightningDataModule):
             raise ModuleNotFoundError(
                 "No module named 'pytorch_lightning' (or 'lightning') found "
                 "in your Python environment. Run 'pip install "
-                "pytorch_lightning' or 'pip install lightning'")
+                "pytorch_lightning' or 'pip install lightning'"
+            )
 
         if not has_val:
             self.val_dataloader = None  # type: ignore
@@ -42,15 +46,17 @@ class LightningDataModule(_LightningDataModule):
         kwargs.setdefault('batch_size', 1)
         kwargs.setdefault('num_workers', 0)
         kwargs.setdefault('pin_memory', True)
-        kwargs.setdefault('persistent_workers',
-                          kwargs.get('num_workers', 0) > 0)
+        kwargs.setdefault(
+            'persistent_workers', kwargs.get('num_workers', 0) > 0
+        )
 
         if 'shuffle' in kwargs:
             warnings.warn(
                 f"The 'shuffle={kwargs['shuffle']}' option is "
                 f"ignored in '{self.__class__.__name__}'. Remove it "
-                f"from the argument list to disable this warning",
-                stacklevel=2)
+                f'from the argument list to disable this warning',
+                stacklevel=2,
+            )
             del kwargs['shuffle']
 
         self.kwargs = kwargs
@@ -85,26 +91,32 @@ class LightningData(LightningDataModule):
             warnings.warn(
                 f"Re-setting 'batch_size' to 1 in "
                 f"'{self.__class__.__name__}' for loader='full' "
-                f"(got '{kwargs['batch_size']}')", stacklevel=2)
+                f"(got '{kwargs['batch_size']}')",
+                stacklevel=2,
+            )
             kwargs['batch_size'] = 1
 
         if loader == 'full' and kwargs['num_workers'] != 0:
             warnings.warn(
                 f"Re-setting 'num_workers' to 0 in "
                 f"'{self.__class__.__name__}' for loader='full' "
-                f"(got '{kwargs['num_workers']}')", stacklevel=2)
+                f"(got '{kwargs['num_workers']}')",
+                stacklevel=2,
+            )
             kwargs['num_workers'] = 0
 
         if loader == 'full' and kwargs.get('sampler') is not None:
             warnings.warn(
-                "'sampler' option is not supported for "
-                "loader='full'", stacklevel=2)
+                "'sampler' option is not supported for loader='full'",
+                stacklevel=2,
+            )
             kwargs.pop('sampler', None)
 
         if loader == 'full' and kwargs.get('batch_sampler') is not None:
             warnings.warn(
-                "'batch_sampler' option is not supported for "
-                "loader='full'", stacklevel=2)
+                "'batch_sampler' option is not supported for loader='full'",
+                stacklevel=2,
+            )
             kwargs.pop('batch_sampler', None)
 
         super().__init__(has_val, has_test, **kwargs)
@@ -114,7 +126,9 @@ class LightningData(LightningDataModule):
                 warnings.warn(
                     f"Re-setting 'pin_memory' to 'False' in "
                     f"'{self.__class__.__name__}' for loader='full' "
-                    f"(got 'True')", stacklevel=2)
+                    f"(got 'True')",
+                    stacklevel=2,
+                )
             self.kwargs['pin_memory'] = False
 
         self.data = data
@@ -123,16 +137,17 @@ class LightningData(LightningDataModule):
         # Determine sampler and loader arguments ##############################
 
         if loader in ['neighbor', 'link_neighbor']:
-
             # Define a new `NeighborSampler` to be re-used across data loaders:
             sampler_kwargs, self.loader_kwargs = split_kwargs(
                 self.kwargs,
                 NeighborSampler,
             )
-            sampler_kwargs.setdefault('share_memory',
-                                      self.kwargs['num_workers'] > 0)
+            sampler_kwargs.setdefault(
+                'share_memory', self.kwargs['num_workers'] > 0
+            )
             self.graph_sampler: BaseSampler = NeighborSampler(
-                data, **sampler_kwargs)
+                data, **sampler_kwargs
+            )
 
         elif graph_sampler is not None:
             sampler_kwargs, self.loader_kwargs = split_kwargs(
@@ -141,10 +156,12 @@ class LightningData(LightningDataModule):
             )
             if len(sampler_kwargs) > 0:
                 warnings.warn(
-                    f"Ignoring the arguments "
-                    f"{list(sampler_kwargs.keys())} in "
+                    f'Ignoring the arguments '
+                    f'{list(sampler_kwargs.keys())} in '
                     f"'{self.__class__.__name__}' since a custom "
-                    f"'graph_sampler' was passed", stacklevel=2)
+                    f"'graph_sampler' was passed",
+                    stacklevel=2,
+                )
             self.graph_sampler = graph_sampler
 
         else:
@@ -198,7 +215,8 @@ class LightningData(LightningDataModule):
             if num_devices > 1:
                 raise ValueError(
                     f"'{self.__class__.__name__}' with loader='full' requires "
-                    f"training on a single device")
+                    f'training on a single device'
+                )
         super().prepare_data()
 
     def full_dataloader(self, **kwargs: Any) -> torch.utils.data.DataLoader:
@@ -253,6 +271,7 @@ class LightningDataset(LightningDataModule):
         **kwargs (optional): Additional arguments of
             :class:`torch_geometric.loader.DataLoader`.
     """
+
     def __init__(
         self,
         train_dataset: Dataset,
@@ -400,6 +419,7 @@ class LightningNodeData(LightningData):
         **kwargs (optional): Additional arguments of
             :class:`torch_geometric.loader.NeighborLoader`.
     """
+
     def __init__(
         self,
         data: Union[Data, HeteroData],
@@ -588,6 +608,7 @@ class LightningLinkData(LightningData):
         **kwargs (optional): Additional arguments of
             :class:`torch_geometric.loader.LinkNeighborLoader`.
     """
+
     def __init__(
         self,
         data: Union[Data, HeteroData],
@@ -728,12 +749,15 @@ def infer_input_nodes(data: Union[Data, HeteroData], split: str) -> InputNodes:
     if isinstance(data, HeteroData):
         input_nodes_dict = {
             node_type: store[attr_name]
-            for node_type, store in data.node_items() if attr_name in store
+            for node_type, store in data.node_items()
+            if attr_name in store
         }
         if len(input_nodes_dict) != 1:
-            raise ValueError(f"Could not automatically determine the input "
-                             f"nodes of {data} since there exists multiple "
-                             f"types with attribute '{attr_name}'")
+            raise ValueError(
+                f'Could not automatically determine the input '
+                f'nodes of {data} since there exists multiple '
+                f"types with attribute '{attr_name}'"
+            )
         return list(input_nodes_dict.items())[0]
     return None
 

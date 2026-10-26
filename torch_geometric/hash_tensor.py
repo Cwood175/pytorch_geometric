@@ -28,6 +28,7 @@ HANDLED_FUNCTIONS: Dict[Callable, Callable] = {}
 
 def implements(torch_function: Callable) -> Callable:
     r"""Registers a :pytorch:`PyTorch` function override."""
+
     @functools.wraps(torch_function)
     def decorator(my_function: Callable) -> Callable:
         HANDLED_FUNCTIONS[torch_function] = my_function
@@ -46,8 +47,16 @@ def as_key_tensor(
     except Exception:
         device = device or torch.get_default_device()
         key = torch.tensor(
-            [xxhash.xxh64(x).intdigest() & 0x7FFFFFFFFFFFFFFF for x in key],
-            dtype=torch.int64, device=device)
+            [
+                xxhash.xxh64(
+                    x.encode() if isinstance(x, str) else x
+                ).intdigest()
+                & 0x7FFFFFFFFFFFFFFF
+                for x in key
+            ],
+            dtype=torch.int64,
+            device=device,
+        )
 
     if key.element_size() == 1:
         key = key.view(torch.uint8)
@@ -58,8 +67,10 @@ def as_key_tensor(
     elif key.element_size() == 8:
         key = key.view(torch.int64)
     else:
-        raise ValueError(f"Received invalid dtype '{key.dtype}' with "
-                         f"{key.element_size()} bytes")
+        raise ValueError(
+            f"Received invalid dtype '{key.dtype}' with "
+            f'{key.element_size()} bytes'
+        )
 
     return key
 
@@ -70,10 +81,12 @@ def get_hash_map(key: Tensor) -> Union[CPUHashMap, CUDAHashMap]:
 
     if key.is_cuda:
         warnings.warn(
-            "Fallback to CPU-based mapping algorithm which may "
-            "cause slowdowns and device synchronization. Please "
+            'Fallback to CPU-based mapping algorithm which may '
+            'cause slowdowns and device synchronization. Please '
             "install 'pyg-lib' for an accelerated 'HashTensor' "
-            "implementation.", stacklevel=2)
+            'implementation.',
+            stacklevel=2,
+        )
 
     if torch_geometric.typing.WITH_CPU_HASH_MAP:
         return CPUHashMap(key.cpu(), -1)
@@ -143,6 +156,7 @@ class HashTensor(Tensor):
         dtype: The desired data type of the values of the returned tensor.
         device: The device of the returned tensor.
     """
+
     _map: Union[Tensor, CPUHashMap, CUDAHashMap]
     _value: Optional[Tensor]
     _min_key: Tensor
@@ -165,34 +179,44 @@ class HashTensor(Tensor):
         key = as_key_tensor(key, device=device)
 
         if key.dim() != 1:
-            raise ValueError(f"'key' data in '{cls.__name__}' needs to be "
-                             f"one-dimensional (got {key.dim()} dimensions)")
+            raise ValueError(
+                f"'key' data in '{cls.__name__}' needs to be "
+                f'one-dimensional (got {key.dim()} dimensions)'
+            )
 
         if not key.is_contiguous():
-            raise ValueError(f"'key' data in '{cls.__name__}' needs to be "
-                             f"contiguous")
+            raise ValueError(
+                f"'key' data in '{cls.__name__}' needs to be contiguous"
+            )
 
         if value is not None:
             if key.device != value.device:
-                raise ValueError(f"'key' and 'value' data in '{cls.__name__}' "
-                                 f"are expected to be on the same device (got "
-                                 f"'{key.device}' and '{value.device}')")
+                raise ValueError(
+                    f"'key' and 'value' data in '{cls.__name__}' "
+                    f'are expected to be on the same device (got '
+                    f"'{key.device}' and '{value.device}')"
+                )
 
             if key.numel() != value.size(0):
-                raise ValueError(f"'key' and 'value' data in '{cls.__name__}' "
-                                 f"are expected to have the same size in the "
-                                 f"first dimension (got {key.size(0)} and "
-                                 f"{value.size(0)})")
+                raise ValueError(
+                    f"'key' and 'value' data in '{cls.__name__}' "
+                    f'are expected to have the same size in the '
+                    f'first dimension (got {key.size(0)} and '
+                    f'{value.size(0)})'
+                )
 
         min_key = key.min() if key.numel() > 0 else key.new_zeros(())
         max_key = key.max() if key.numel() > 0 else key.new_zeros(())
 
         _range = max_key - min_key
         # TODO Expose fixed threshold as argument.
-        if (key.dtype in {torch.uint8, torch.int16} or _range <= 1_000_000
-                or _range <= 2 * key.numel()):
+        if (
+            key.dtype in {torch.uint8, torch.int16}
+            or _range <= 1_000_000
+            or _range <= 2 * key.numel()
+        ):
             _map = torch.full(
-                size=(_range + 3, ),
+                size=(_range + 3,),
                 fill_value=-1,
                 dtype=torch.int64,
                 device=key.device,
@@ -237,7 +261,7 @@ class HashTensor(Tensor):
         else:
             dtype = dtype or torch.int64
             size = torch.Size([num_keys])
-            stride = (1, )
+            stride = (1,)
             layout = torch.strided
             requires_grad = False
 
@@ -265,8 +289,10 @@ class HashTensor(Tensor):
             mask = self._map >= 0
             key = mask.nonzero().view(-1) - 1
             key = key[self._map[mask]]
-        elif (torch_geometric.typing.WITH_CUDA_HASH_MAP
-              or torch_geometric.typing.WITH_CPU_HASH_MAP):
+        elif (
+            torch_geometric.typing.WITH_CUDA_HASH_MAP
+            or torch_geometric.typing.WITH_CPU_HASH_MAP
+        ):
             key = self._map.keys().to(self.device)
         else:
             key = torch.from_numpy(self._map.categories.to_numpy())
@@ -345,8 +371,9 @@ class HashTensor(Tensor):
         # For all other PyTorch functions, we treat them as vanilla tensors.
         args = pytree.tree_map_only(HashTensor, lambda x: x.as_tensor(), args)
         if kwargs is not None:
-            kwargs = pytree.tree_map_only(HashTensor, lambda x: x.as_tensor(),
-                                          kwargs)
+            kwargs = pytree.tree_map_only(
+                HashTensor, lambda x: x.as_tensor(), kwargs
+            )
         return func(*args, **(kwargs or {}))
 
     def __tensor_flatten__(self) -> Tuple[List[str], Tuple[Any, ...]]:
@@ -425,7 +452,7 @@ class HashTensor(Tensor):
 
     def __getitem__(self, indices: Any) -> Union['HashTensor', Tensor]:
         if not isinstance(indices, tuple):
-            indices = (indices, )
+            indices = (indices,)
         assert len(indices) > 0
 
         # We convert any index tensor in the first dimension into a tensor.
@@ -441,10 +468,10 @@ class HashTensor(Tensor):
 
         if isinstance(indices[0], (int, bool)):
             index: Union[int, Tensor] = int(as_key_tensor([indices[0]]))
-            indices = (index, ) + indices[1:]
+            indices = (index,) + indices[1:]
         elif isinstance(indices[0], (Tensor, list, np.ndarray)):
             index = as_key_tensor(indices[0], device=self.device)
-            indices = (index, ) + indices[1:]
+            indices = (index,) + indices[1:]
 
         indices = indices[0] if len(indices) == 1 else indices
 
@@ -525,8 +552,11 @@ def _to_copy(
         _map = aten._to_copy.default(_map, device=device)
     # Only convert `_map` in case `CUDAHashMap` exists - otherwise we use
     # CPU-based mapping anyway and there is no need for a copy.
-    elif (torch_geometric.typing.WITH_CUDA_HASH_MAP and tensor.is_cuda
-          and tensor.device != min_key.device):
+    elif (
+        torch_geometric.typing.WITH_CUDA_HASH_MAP
+        and tensor.is_cuda
+        and tensor.device != min_key.device
+    ):
         key = _map.keys()
         key = aten._to_copy.default(key, device=device)
         _map = get_hash_map(key)
@@ -564,9 +594,11 @@ def _pin_memory(tensor: HashTensor) -> HashTensor:
 @implements(aten.unsqueeze.default)
 def _unsqueeze(tensor: HashTensor, dim: int) -> HashTensor:
     if dim == 0 or dim == -(tensor.dim() + 1):
-        raise IndexError(f"Cannot unsqueeze '{tensor.__class__.__name__}' in "
-                         f"the first dimension. Please call `as_tensor()` "
-                         f"beforehand")
+        raise IndexError(
+            f"Cannot unsqueeze '{tensor.__class__.__name__}' in "
+            f'the first dimension. Please call `as_tensor()` '
+            f'beforehand'
+        )
 
     return tensor._from_data(
         tensor._map,
@@ -608,9 +640,11 @@ def _squeeze_dim(
 
     for d in dim:
         if d < -tensor.dim() or d >= tensor.dim():
-            raise IndexError(f"Dimension out of range (expected to be in "
-                             f"range of [{-tensor.dim()}, {tensor.dim()-1}], "
-                             f"but got {d})")
+            raise IndexError(
+                f'Dimension out of range (expected to be in '
+                f'range of [{-tensor.dim()}, {tensor.dim() - 1}], '
+                f'but got {d})'
+            )
 
     if tensor._value is None:
         return tensor._shallow_copy()
@@ -673,14 +707,20 @@ def _new_index_select(
 ) -> Tensor:
 
     if isinstance(dim, int) and (dim < -input.dim() or dim >= input.dim()):
-        raise IndexError(f"Dimension out of range (expected to be in range of "
-                         f"[{-input.dim()}, {input.dim()-1}], but got {dim})")
+        raise IndexError(
+            f'Dimension out of range (expected to be in range of '
+            f'[{-input.dim()}, {input.dim() - 1}], but got {dim})'
+        )
 
     # We convert any index tensor in the first dimension into a tensor. This
     # means that downstream handling (i.e. in `aten.index_select.default`)
     # needs to take this pre-conversion into account.
-    if (not torch.jit.is_scripting() and isinstance(input, HashTensor)
-            and isinstance(dim, int) and (dim == 0 or dim == -input.dim())):
+    if (
+        not torch.jit.is_scripting()
+        and isinstance(input, HashTensor)
+        and isinstance(dim, int)
+        and (dim == 0 or dim == -input.dim())
+    ):
         index = as_key_tensor(index, device=input.device)
 
     if isinstance(dim, int):  # Type narrowing...
@@ -730,14 +770,20 @@ def _new_select(
 ) -> Tensor:
 
     if isinstance(dim, int) and (dim < -input.dim() or dim >= input.dim()):
-        raise IndexError(f"Dimension out of range (expected to be in range of "
-                         f"[{-input.dim()}, {input.dim()-1}], but got {dim})")
+        raise IndexError(
+            f'Dimension out of range (expected to be in range of '
+            f'[{-input.dim()}, {input.dim() - 1}], but got {dim})'
+        )
 
     # We convert any index in the first dimension into an integer. This means
     # that downstream handling (i.e. in `aten.select.int`) needs to take this
     # pre-conversion into account.
-    if (not torch.jit.is_scripting() and isinstance(input, HashTensor)
-            and isinstance(dim, int) and (dim == 0 or dim == -input.dim())):
+    if (
+        not torch.jit.is_scripting()
+        and isinstance(input, HashTensor)
+        and isinstance(dim, int)
+        and (dim == 0 or dim == -input.dim())
+    ):
         index = int(as_key_tensor([index]))
 
     if isinstance(dim, int):  # Type narrowing...
